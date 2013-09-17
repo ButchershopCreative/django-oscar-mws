@@ -41,6 +41,15 @@ def update_fulfillment_order(fulfillment_order):
     fulfillment_order.status = forder.FulfillmentOrderStatus
     fulfillment_order.save()
 
+    # Check that an outbound shipment has occurred
+    fshipmentstatus = getattr(
+        response.GetFulfillmentOrderResult.FulfillmentShipment,
+        'FulfillmentShipmentStatus',
+        None)
+
+    if fshipmentstatus is None:
+        return fulfillment_order
+
     fshipments = getattr(
         response.GetFulfillmentOrderResult.FulfillmentShipment,
         'member',
