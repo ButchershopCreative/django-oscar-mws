@@ -166,10 +166,12 @@ class MWS(object):
             'SignatureMethod': 'HmacSHA256',
         }
         params.update(extra_data)
+        logger.debug("Request Parameters: {}".format(params))
         request_description = '&'.join(
             ['%s=%s' % (k, urllib.quote(unicode(params[k]), safe='-_.~').encode('utf-8')) for k in sorted(params)]
         )
         signature = self.calc_signature(method, request_description)
+        logger.debug('Domain: {} URI: {}'.format(self.domain, self.uri))
         url = '%s%s?%s&Signature=%s' % (self.domain, self.uri,
                                         request_description,
                                         urllib.quote(signature))
