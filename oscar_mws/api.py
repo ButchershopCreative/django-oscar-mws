@@ -56,11 +56,6 @@ def remove_empty(d):
     return d
 
 
-def remove_namespace(xml):
-    regex = re.compile(' xmlns(:ns2)?="[^"]+"|(ns2:)|(xml:)')
-    return regex.sub('', xml)
-
-
 class MWSObject(OrderedDict):
 
     def get_list(self, name):
@@ -149,6 +144,16 @@ class MWS(object):
         self.uri = uri or self.URI
         self.version = version or self.VERSION
 
+    def _get_quote_params(self, params):
+        quoted_params = []
+        for key in sorted(params):
+            value = urllib.quote(
+                unicode(params[key]).encode('utf-8'),
+                safe='-_.~'
+            )
+            quoted_params.append("{}={}".format(key, value))
+        return '&'.join(quoted_params)
+
     def make_request(self, extra_data, method="GET", **kwargs):
         """
         Make request to Amazon MWS API with these parameters
@@ -167,10 +172,10 @@ class MWS(object):
         }
         params.update(extra_data)
         logger.debug("Request Parameters: {}".format(params))
-        request_description = '&'.join(
-            ['%s=%s' % (k, urllib.quote(unicode(params[k]), safe='-_.~').encode('utf-8')) for k in sorted(params)]
-        )
+
+        request_description = self._get_quote_params(params)
         signature = self.calc_signature(method, request_description)
+
         logger.debug('Domain: {} URI: {}'.format(self.domain, self.uri))
         url = '%s%s?%s&Signature=%s' % (self.domain, self.uri,
                                         request_description,
@@ -218,6 +223,7 @@ class MWS(object):
 
         # Store the response object in the parsed_response for quick access
         parsed_response.response = response
+        logger.debug("Received response: {}".format(response.content))
         return parsed_response
 
     def get_service_status(self):
