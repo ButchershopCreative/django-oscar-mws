@@ -5,10 +5,10 @@ from dateutil.parser import parse as du_parse
 from django.test import TestCase
 from django.db.models import get_model
 
-from oscar_testsupport.factories import create_order
+from oscar.test.factories import create_order
 
 from oscar_mws.test import mixins, factories
-
+from oscar_mws.fulfillment.creator import FulfillmentOrderCreator
 from oscar_mws.fulfillment.gateway import update_fulfillment_order
 
 ShippingEvent = get_model('order', 'ShippingEvent')
@@ -17,6 +17,79 @@ ShippingEventType = get_model('order', 'ShippingEventType')
 ShipmentPackage = get_model('oscar_mws', 'ShipmentPackage')
 FulfillmentOrder = get_model('oscar_mws', 'FulfillmentOrder')
 FulfillmentShipment = get_model('oscar_mws', 'FulfillmentShipment')
+FulfillmentOrderLine = get_model('oscar_mws', 'FulfillmentOrderLine')
+
+
+class TestCreateFulfillmentOrder(mixins.DataLoaderMixin, TestCase):
+
+    @httpretty.activate
+    def test_creates_shipments_for_single_address(self):
+        httpretty.register_uri(
+            httpretty.POST,
+            'https://mws.amazonservices.com/FulfillmentOutboundShipment/2010-10-01',
+            body=self.load_data('create_fulfillment_order_response.xml'),
+        )
+
+
+class TestUpdatingFulfillmentOrders(mixins.DataLoaderMixin, TestCase):
+
+    def setUp(self):
+        super(TestUpdatingFulfillmentOrders, self).setUp()
+        self.merchant = factories.MerchantAccountFactory()
+
+        self.order = factories.OrderFactory()
+        factories.OrderLineFactory(
+            order=self.order, product__amazon_profile__sku='SOME-SELLER-SKU')
+
+        creator = FulfillmentOrderCreator()
+        self.fulfillment_order = creator.create_fulfillment_order(
+            self.order)[0]
+
+    @httpretty.activate
+    def test_updates_a_single_order_status(self):
+        httpretty.register_uri(
+            httpretty.GET,
+            'https://mws.amazonservices.com/FulfillmentOutboundShipment/2010-10-01',
+            responses=[httpretty.Response(
+                self.load_data('get_fulfillment_order_response.xml'),
+            )],
+        )
+        order = update_fulfillment_order(self.fulfillment_order)
+        self.assertEquals(order.status, order.COMPLETE)
+
+        shipments = FulfillmentShipment.objects.all()
+        self.assertEquals(len(shipments), 1)
+
+        self.assertEquals(shipments[0].status, 'SHIPPED')
+        self.assertEquals(shipments[0].shipment_events.count(), 1)
+
+        event = shipments[0].shipment_events.all()[0]
+        self.assertEquals(event.event_type.name, 'SHIPPED')
+        self.assertSequenceEqual(
+            list(event.lines.all()), list(self.order.lines.all()))
+        self.assertEquals(
+            event.notes,
+            "* Shipped package via Magic Parcels with tracking number MPT_1234"
+        )
+
+        self.assertEquals(shipments[0].packages.count(), 1)
+        package = shipments[0].packages.all()[0]
+        self.assertEquals(package.package_number, 2341234)
+        self.assertEquals(package.carrier_code, 'Magic Parcels')
+        self.assertEquals(package.tracking_number, 'MPT_1234')
+
+    @httpretty.activate
+    def test_updates_an_order_without_shipment_info(self):
+        httpretty.register_uri(
+            httpretty.GET,
+            'https://mws.amazonservices.com/FulfillmentOutboundShipment/2010-10-01',
+            responses=[httpretty.Response(
+                self.load_data(
+                    'get_fulfillment_order_response_without_shipments.xml'))],
+        )
+        order = update_fulfillment_order(self.fulfillment_order)
+        self.assertEquals(order.status, order.PLANNING)
+        self.assertEquals(FulfillmentShipment.objects.count(), 0)
 
 
 class TestGetFulfillmentOrder(mixins.DataLoaderMixin, TestCase):
@@ -30,7 +103,9 @@ class TestGetFulfillmentOrder(mixins.DataLoaderMixin, TestCase):
             body=xml_data,
         )
 
-        order = create_order()
+        basket = factories.BasketFactory()
+        basket.add_product(factories.ProductFactory())
+        order = create_order(basket=basket)
 
         update_fulfillment_order(
             factories.FulfillmentOrderFactory(order=order)

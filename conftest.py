@@ -1,13 +1,16 @@
 import os
+import logging
 
 from django.conf import settings
+
+from oscar import OSCAR_MAIN_TEMPLATE_DIR, get_core_apps
 
 location = lambda x: os.path.join(
     os.path.dirname(os.path.realpath(__file__)), x
 )
 sandbox = lambda x: location("sandbox/%s" % x)
 
-from oscar import OSCAR_MAIN_TEMPLATE_DIR, get_core_apps
+logging.basicConfig(level=logging.INFO)
 
 
 def pytest_configure():
@@ -16,6 +19,7 @@ def pytest_configure():
 
     DEFAULT_SETTINGS = OSCAR_SETTINGS
     DEFAULT_SETTINGS.update(OSCAR_MWS_SETTINGS)
+    DEFAULT_SETTINGS['OSCAR_DEFAULT_CURRENCY'] = 'USD'
 
     settings.configure(
         DATABASES={
@@ -56,6 +60,7 @@ def pytest_configure():
             'django.middleware.csrf.CsrfViewMiddleware',
             'django.contrib.auth.middleware.AuthenticationMiddleware',
             'django.contrib.messages.middleware.MessageMiddleware',
+            'oscar.apps.basket.middleware.BasketMiddleware',
         ),
         ROOT_URLCONF='sandbox.sandbox.urls',
         TEMPLATE_DIRS=[
@@ -79,8 +84,6 @@ def pytest_configure():
         AUTHENTICATION_BACKENDS=(
             'django.contrib.auth.backends.ModelBackend',
         ),
-        MWS_AWS_ACCESS_KEY_ID='fakeaccesskey',
-        MWS_AWS_SECRET_ACCESS_KEY='fakesecret',
         COMPRESS_ENABLED=True,
         COMPRESS_OFFLINE=False,
         COMPRESS_PRECOMPILERS=(
@@ -118,6 +121,11 @@ def pytest_configure():
                 }
             },
             'loggers': {
+                'oscar_mws': {
+                    'handlers': ['console'],
+                    'level': 'DEBUG',
+                    'propagate': True,
+                },
                 'oscar_mws.api': {
                     'handlers': ['console'],
                     'level': 'DEBUG',
@@ -130,5 +138,6 @@ def pytest_configure():
                 },
             }
         },
+        DEBUG=True,
         **DEFAULT_SETTINGS
     )

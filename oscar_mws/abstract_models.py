@@ -1,11 +1,16 @@
 import oscar_mws
 
+from collections import OrderedDict
+
 from django.db import models
 from django.conf import settings
 from django.utils.timezone import now as tz_now
 from django.utils.translation import ugettext_lazy as _
 
 from lxml.builder import E
+
+Partner = models.get_model('partner', 'Partner')
+StockRecord = models.get_model('partner', 'StockRecord')
 
 
 STATUS_DONE = "_DONE_"
@@ -35,28 +40,41 @@ TYPE_POST_PRODUCT_PRICING_DATA = '_POST_PRODUCT_PRICING_DATA_'
 TYPE_POST_INVENTORY_AVAILABILITY_DATA = '_POST_INVENTORY_AVAILABILITY_DATA_'
 TYPE_POST_ORDER_ACKNOWLEDGEMENT_DATA = '_POST_ORDER_ACKNOWLEDGEMENT_DATA_'
 TYPE_POST_ORDER_FULFILLMENT_DATA = '_POST_ORDER_FULFILLMENT_DATA_'
-TYPE_POST_FULFILLMENT_ORDER_REQUEST_DATA = '_POST_FULFILLMENT_ORDER_REQUEST_DATA_'
-TYPE_POST_FULFILLMENT_ORDER_CANCELLATION = '_POST_FULFILLMENT_ORDER_CANCELLATION'
+TYPE_POST_FULFILLMENT_ORDER_REQUEST_DATA = \
+    '_POST_FULFILLMENT_ORDER_REQUEST_DATA_'
+TYPE_POST_FULFILLMENT_ORDER_CANCELLATION = \
+    '_POST_FULFILLMENT_ORDER_CANCELLATION'
 TYPE_REQUEST_DATA = '_REQUEST_DATA'
 TYPE_POST_PAYMENT_ADJUSTMENT_DATA = '_POST_PAYMENT_ADJUSTMENT_DATA_'
 TYPE_POST_INVOICE_CONFIRMATION_DATA = '_POST_INVOICE_CONFIRMATION_DATA_'
 TYPE_POST_STD_ACES_DATA = '_POST_STD_ACES_DATA_'
 TYPE_POST_FLAT_FILE_LISTINGS_DATA = '_POST_FLAT_FILE_LISTINGS_DATA_'
-TYPE_POST_FLAT_FILE_ORDER_ACKNOWLEDGEMENT_DATA = '_POST_FLAT_FILE_ORDER_ACKNOWLEDGEMENT_DATA_'
+TYPE_POST_FLAT_FILE_ORDER_ACKNOWLEDGEMENT_DATA = \
+    '_POST_FLAT_FILE_ORDER_ACKNOWLEDGEMENT_DATA_'
 TYPE_POST_FLAT_FILE_FULFILLMENT_DATA = '_POST_FLAT_FILE_FULFILLMENT_DATA_'
-TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_REQUEST_DATA = '_POST_FLAT_FILE_FULFILLMENT_ORDER_REQUEST_DATA_'
-TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_CANCELLATION_REQUEST_DATA = '_POST_FLAT_FILE_FULFILLMENT_ORDER_CANCELLATION_REQUEST_DATA_'
-TYPE_POST_FLAT_FILE_FBA_CREATE_INBOUND_SHIPMENT = '_POST_FLAT_FILE_FBA_CREATE_INBOUND_SHIPMENT_'
-TYPE_POST_FLAT_FILE_FBA_UPDATE_INBOUND_SHIPMENT = '_POST_FLAT_FILE_FBA_UPDATE_INBOUND_SHIPMENT_'
-TYPE_POST_FLAT_FILE_FBA_SHIPMENT_NOTIFICATION_FEED = '_POST_FLAT_FILE_FBA_SHIPMENT_NOTIFICATION_FEED_'
-TYPE_POST_FLAT_FILE_FBA_CREATE_REMOVAL = '_POST_FLAT_FILE_FBA_CREATE_REMOVAL_'
-TYPE_POST_FLAT_FILE_PAYMENT_ADJUSTMENT_DATA = '_POST_FLAT_FILE_PAYMENT_ADJUSTMENT_DATA_'
-TYPE_POST_FLAT_FILE_INVOICE_CONFIRMATION_DATA = '_POST_FLAT_FILE_INVOICE_CONFIRMATION_DATA_'
+TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_REQUEST_DATA = \
+    '_POST_FLAT_FILE_FULFILLMENT_ORDER_REQUEST_DATA_'
+TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_CANCELLATION_REQUEST_DATA = \
+    '_POST_FLAT_FILE_FULFILLMENT_ORDER_CANCELLATION_REQUEST_DATA_'
+TYPE_POST_FLAT_FILE_FBA_CREATE_INBOUND_SHIPMENT = \
+    '_POST_FLAT_FILE_FBA_CREATE_INBOUND_SHIPMENT_'
+TYPE_POST_FLAT_FILE_FBA_UPDATE_INBOUND_SHIPMENT = \
+    '_POST_FLAT_FILE_FBA_UPDATE_INBOUND_SHIPMENT_'
+TYPE_POST_FLAT_FILE_FBA_SHIPMENT_NOTIFICATION_FEED = \
+    '_POST_FLAT_FILE_FBA_SHIPMENT_NOTIFICATION_FEED_'
+TYPE_POST_FLAT_FILE_FBA_CREATE_REMOVAL = \
+    '_POST_FLAT_FILE_FBA_CREATE_REMOVAL_'
+TYPE_POST_FLAT_FILE_PAYMENT_ADJUSTMENT_DATA = \
+    '_POST_FLAT_FILE_PAYMENT_ADJUSTMENT_DATA_'
+TYPE_POST_FLAT_FILE_INVOICE_CONFIRMATION_DATA = \
+    '_POST_FLAT_FILE_INVOICE_CONFIRMATION_DATA_'
 TYPE_POST_FLAT_FILE_INVLOADER_DATA = '_POST_FLAT_FILE_INVLOADER_DATA_'
-TYPE_POST_FLAT_FILE_CONVERGENCE_LISTINGS_DATA = '_POST_FLAT_FILE_CONVERGENCE_LISTINGS_DATA_'
+TYPE_POST_FLAT_FILE_CONVERGENCE_LISTINGS_DATA = \
+    '_POST_FLAT_FILE_CONVERGENCE_LISTINGS_DATA_'
 TYPE_POST_FLAT_FILE_BOOKLOADER_DATA = '_POST_FLAT_FILE_BOOKLOADER_DATA_'
 TYPE_POST_FLAT_FILE_LISTINGS_DATA = '_POST_FLAT_FILE_LISTINGS_DATA_'
-TYPE_POST_FLAT_FILE_PRICEANDQUANTITYONLY = '_POST_FLAT_FILE_PRICEANDQUANTITYONLY'
+TYPE_POST_FLAT_FILE_PRICEANDQUANTITYONLY = \
+    '_POST_FLAT_FILE_PRICEANDQUANTITYONLY'
 TYPE_UPDATE_DATA = '_UPDATE_DATA_'
 TYPE_POST_FLAT_FILE_SHOPZILLA_DATA = '_POST_FLAT_FILE_SHOPZILLA_DATA_'
 TYPE_POST_UIEE_BOOKLOADER_DATA = '_POST_UIEE_BOOKLOADER_DATA_'
@@ -71,28 +89,43 @@ FEED_TYPES = (
     (TYPE_POST_INVENTORY_AVAILABILITY_DATA, _('Inventory Feed')),
     (TYPE_POST_ORDER_ACKNOWLEDGEMENT_DATA, _('Order Acknowledgement Feed')),
     (TYPE_POST_ORDER_FULFILLMENT_DATA, _('Order Fulfillment Feed')),
-    (TYPE_POST_FULFILLMENT_ORDER_REQUEST_DATA, _('FBA Shipment Injection Fulfillment Feed')),
+    (TYPE_POST_FULFILLMENT_ORDER_REQUEST_DATA,
+     _('FBA Shipment Injection Fulfillment Feed')),
     (TYPE_POST_FULFILLMENT_ORDER_CANCELLATION, _('FBA Shipment Injection')),
     (TYPE_REQUEST_DATA, _('Cancellation Feed')),
     (TYPE_POST_PAYMENT_ADJUSTMENT_DATA, _('Order Adjustment Feed')),
     (TYPE_POST_INVOICE_CONFIRMATION_DATA, _('Invoice Confirmation Feed')),
-    (TYPE_POST_STD_ACES_DATA, _('ACES 3.0 Data (Automotive Part Finder) Feed')),
+    (TYPE_POST_STD_ACES_DATA,
+     _('ACES 3.0 Data (Automotive Part Finder) Feed')),
     (TYPE_POST_FLAT_FILE_LISTINGS_DATA, _('Flat File Listings Feed')),
-    (TYPE_POST_FLAT_FILE_ORDER_ACKNOWLEDGEMENT_DATA, _('Flat File Order Acknowledgement Feed')),
-    (TYPE_POST_FLAT_FILE_FULFILLMENT_DATA, _('Flat File Order Fulfillment Feed')),
-    (TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_REQUEST_DATA, _('Flat File FBA Shipment Injection Fulfillment Feed')),
-    (TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_CANCELLATION_REQUEST_DATA, _('Flat File FBA Shipment Injection')),
-    (TYPE_POST_FLAT_FILE_FBA_CREATE_INBOUND_SHIPMENT, _('FBA Flat File Create Inbound Shipment Feed')),
-    (TYPE_POST_FLAT_FILE_FBA_UPDATE_INBOUND_SHIPMENT, _('FBA Flat File Update Inbound Shipment Feed')),
-    (TYPE_POST_FLAT_FILE_FBA_SHIPMENT_NOTIFICATION_FEED, _('FBA Flat File Shipment Notification Feed')),
-    (TYPE_POST_FLAT_FILE_FBA_CREATE_REMOVAL, _('FBA Flat File Create Removal Feed')),
-    (TYPE_POST_FLAT_FILE_PAYMENT_ADJUSTMENT_DATA, _('Flat File Order Adjustment Feed')),
-    (TYPE_POST_FLAT_FILE_INVOICE_CONFIRMATION_DATA, _('Flat File Invoice Confirmation Feed')),
-    (TYPE_POST_FLAT_FILE_INVLOADER_DATA, _('Flat File Inventory Loader Feed')),
-    (TYPE_POST_FLAT_FILE_CONVERGENCE_LISTINGS_DATA, _('Flat File Music Loader File')),
+    (TYPE_POST_FLAT_FILE_ORDER_ACKNOWLEDGEMENT_DATA,
+     _('Flat File Order Acknowledgement Feed')),
+    (TYPE_POST_FLAT_FILE_FULFILLMENT_DATA,
+     _('Flat File Order Fulfillment Feed')),
+    (TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_REQUEST_DATA,
+     _('Flat File FBA Shipment Injection Fulfillment Feed')),
+    (TYPE_POST_FLAT_FILE_FULFILLMENT_ORDER_CANCELLATION_REQUEST_DATA,
+     _('Flat File FBA Shipment Injection')),
+    (TYPE_POST_FLAT_FILE_FBA_CREATE_INBOUND_SHIPMENT,
+     _('FBA Flat File Create Inbound Shipment Feed')),
+    (TYPE_POST_FLAT_FILE_FBA_UPDATE_INBOUND_SHIPMENT,
+     _('FBA Flat File Update Inbound Shipment Feed')),
+    (TYPE_POST_FLAT_FILE_FBA_SHIPMENT_NOTIFICATION_FEED,
+     _('FBA Flat File Shipment Notification Feed')),
+    (TYPE_POST_FLAT_FILE_FBA_CREATE_REMOVAL,
+     _('FBA Flat File Create Removal Feed')),
+    (TYPE_POST_FLAT_FILE_PAYMENT_ADJUSTMENT_DATA,
+     _('Flat File Order Adjustment Feed')),
+    (TYPE_POST_FLAT_FILE_INVOICE_CONFIRMATION_DATA,
+     _('Flat File Invoice Confirmation Feed')),
+    (TYPE_POST_FLAT_FILE_INVLOADER_DATA,
+     _('Flat File Inventory Loader Feed')),
+    (TYPE_POST_FLAT_FILE_CONVERGENCE_LISTINGS_DATA,
+     _('Flat File Music Loader File')),
     (TYPE_POST_FLAT_FILE_BOOKLOADER_DATA, _('Flat File Book Loader File')),
     (TYPE_POST_FLAT_FILE_LISTINGS_DATA, _('Flat File Video Loader File')),
-    (TYPE_POST_FLAT_FILE_PRICEANDQUANTITYONLY, _('Flat File Price and Quantity')),
+    (TYPE_POST_FLAT_FILE_PRICEANDQUANTITYONLY,
+     _('Flat File Price and Quantity')),
     (TYPE_UPDATE_DATA, _('Update File')),
     (TYPE_POST_FLAT_FILE_SHOPZILLA_DATA, _('Product Ads Flat File Feed')),
     (TYPE_POST_UIEE_BOOKLOADER_DATA, _('UIEE Inventory File')),
@@ -189,9 +222,6 @@ class AbstractFeedResult(models.Model):
 
 
 class AbstractAmazonProfile(models.Model):
-    SELLER_SKU_FIELD = "product__{0}".format(
-        getattr(settings, "MWS_SELLER_SKU_FIELD")
-    )
     FULFILLMENT_BY_AMAZON = "AFN"
     FULFILLMENT_BY_MERCHANT = "MFN"
     FULFILLMENT_TYPES = (
@@ -202,6 +232,7 @@ class AbstractAmazonProfile(models.Model):
     # We don't necessarily get the ASIN back right away so we need
     # to be able to create a profile without a ASIN
     asin = models.CharField(_("ASIN"), max_length=10, blank=True)
+    sku = models.CharField(_("SKU"), max_length=64)
     product = models.OneToOneField(
         'catalogue.Product',
         verbose_name=_("Product"),
@@ -261,13 +292,11 @@ class AbstractAmazonProfile(models.Model):
             )
         return None
 
-    @property
-    def sku(self):
-        if not hasattr(self, '_cached_sku'):
-            if not self.product.has_stockrecord:
-                self._cached_sku = None
-            self._cached_sku = self.product.stockrecord.partner_sku.strip()
-        return self._cached_sku
+    def save(self, *args, **kwargs):
+        super(AbstractAmazonProfile, self).save(*args, **kwargs)
+        if getattr(settings, 'MWS_ENFORCE_PARTNER_SKU', True):
+            StockRecord.objects.filter(product__amazon_profile=self).update(
+                partner_sku=self.sku)
 
     def __unicode__(self):
         return "Amazon profile for {0}".format(self.product.title)
@@ -277,6 +306,11 @@ class AbstractAmazonProfile(models.Model):
 
 
 class AbstractFulfillmentOrder(models.Model):
+    # Statuses for internal use only
+    UNSUBMITTED = 'UNSUBMITTED'
+    SUBMISSION_FAILED = 'SUBMISSION_FAILED'
+    SUBMITTED = 'SUBMITTED'
+    # Statuses as reported by Amazon
     RECEIVED = 'RECEIVED'
     INVALID = 'INVALID'
     PLANNING = 'PLANNING'
@@ -287,6 +321,9 @@ class AbstractFulfillmentOrder(models.Model):
     UNFULFILLABLE = 'UNFULFILLABLE'
 
     STATUSES = (
+        (UNSUBMITTED, _("Not submitted to Amazon")),
+        (SUBMISSION_FAILED, _("Failed submitting to Amazon")),
+        (SUBMITTED, _("Submitted to Amazon")),
         (RECEIVED, _("Received")),
         (INVALID, _("Invalid")),
         (PLANNING, _("Planning")),
@@ -296,37 +333,61 @@ class AbstractFulfillmentOrder(models.Model):
         (COMPLETE_PARTIALLED, _("Complete Partialled")),
         (UNFULFILLABLE, _("Unfullfillable")),
     )
-
     fulfillment_id = models.CharField(
-        _("Fulfillment ID"),
-        max_length=32,
-        unique=True,
-    )
+        _("Fulfillment ID"), max_length=32, unique=True)
     merchant = models.ForeignKey(
-        "MerchantAccount",
-        verbose_name=_("Merchant account"),
-        related_name="fulfillment_orders",
-        null=True, blank=False,
-    )
-    order = models.ForeignKey(
-        'order.Order',
-        verbose_name=_("Order"),
-        related_name="fulfillment_orders"
-    )
+        "MerchantAccount", verbose_name=_("Merchant account"),
+        related_name="fulfillment_orders", null=True, blank=False)
 
+    shipping_address = models.ForeignKey(
+        'order.ShippingAddress', verbose_name=_("Shipping address"),
+        related_name='fulfillment_orders', null=True)
+    shipping_speed = models.CharField(
+        _("Shiping speed category"), max_length=200)
+    comments = models.TextField(_("Comments"))
+
+    order = models.ForeignKey(
+        'order.Order', verbose_name=_("Order"),
+        related_name="fulfillment_orders")
     lines = models.ManyToManyField(
-        'order.Line',
-        through='FulfillmentOrderLine',
-        verbose_name=_("Lines"),
-        related_name="fulfillment_orders"
-    )
+        'order.Line', through='FulfillmentOrderLine', verbose_name=_("Lines"),
+        related_name="fulfillment_orders")
     status = models.CharField(
-        _("Fulfillment status"),
-        max_length=25,
-        choices=STATUSES,
-        blank=True
-    )
+        _("Fulfillment status"), max_length=25, choices=STATUSES, blank=True,
+        default=UNSUBMITTED)
     date_updated = models.DateTimeField(_("Date last updated"))
+
+    def get_items(self):
+        items = []
+        for line in self.lines.all().prefetch_related('fulfillment_line'):
+            items.append(line.fulfillment_line.get_item_kwargs())
+        return items
+
+    def get_destination_address(self):
+        return OrderedDict(
+            Name=self.shipping_address.name,
+            Line1=self.shipping_address.line1,
+            Line2=self.shipping_address.line2,
+            line3=self.shipping_address.line3,
+            City=self.shipping_address.city,
+            CountryCode=self.shipping_address.country.iso_3166_1_a2,
+            StateOrProvinceCode=self.shipping_address.state,
+            PostalCode=self.shipping_address.postcode,
+        )
+
+    def get_order_kwargs(self):
+        kwargs = {
+            'order_id': self.fulfillment_id,
+            'displayable_order_id': self.fulfillment_id,
+            'order_date': self.order.date_placed.isoformat(),
+            'shipping_speed': self.shipping_speed,
+            'comments': self.comments[:1000],
+            'items': self.get_items(),
+            'destination_address': self.get_destination_address(),
+        }
+        if self.order.user:
+            kwargs['notification_emails'] = [self.order.user.email]
+        return kwargs
 
     def save(self, *args, **kwargs):
         self.date_updated = tz_now()
@@ -413,11 +474,31 @@ class AbstractFulfillmentOrderLine(models.Model):
         null=True, blank=True,
     )
     package = models.ForeignKey(
-        'oscar_mws.ShipmentPackage',
+        'oscar_mws.ShipmentPackage', related_name="order_lines",
         verbose_name=_("Fulfillment shipment package"),
-        related_name="order_lines",
-        null=True, blank=True,
-    )
+        null=True, blank=True)
+
+    quantity = models.PositiveIntegerField(_("Quantity"))
+    price_incl_tax = models.DecimalField(
+        _("Price incl. tax"), max_digits=12, decimal_places=2, null=True,
+        blank=True)
+    price_incl_tax = models.CharField(_("Currency"), max_length=3, blank=True)
+    comment = models.TextField(_("Comment"), blank=True)
+
+    def get_item_kwargs(self):
+        kwargs = {
+            'SellerSKU': self.line.product.amazon_profile.sku,
+            'SellerFulfillmentOrderItemId': self.order_item_id,
+            'Quantity': self.quantity,
+        }
+        if self.price_incl_tax and self.price_currency:
+            kwargs['PerUnitDeclaredValue'] = OrderedDict(
+                Value=self.price_incl_tax,
+                CurrencyCode=self.price_currency,
+            )
+        if self.comment:
+            kwargs['DisplayableComment'] = self.comment
+        return kwargs
 
     @property
     def status(self):
@@ -427,7 +508,7 @@ class AbstractFulfillmentOrderLine(models.Model):
 
     def __unicode__(self):
         return "Line {0} on {1}".format(
-            self.line.partner_sku,
+            self.line.product.amazon_profile.sku,
             self.fulfillment_order.fulfillment_id
         )
 
@@ -454,6 +535,20 @@ class AbstractMerchantAccount(models.Model):
     aws_api_key = models.CharField(_("AWS API Key"), max_length=200)
     aws_api_secret = models.CharField(_("AWS API Secret"), max_length=200)
     seller_id = models.CharField(_("Seller/Merchant ID"), max_length=200)
+
+    partner = models.OneToOneField(
+        "partner.Partner",
+        verbose_name=_("Partner"),
+        related_name="amazon_merchant",
+        null=True, blank=True
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.partner:
+            self.partner, __ = Partner.objects.get_or_create(
+                name="Amazon {} ({})".format(self.name, self.region)
+            )
+        super(AbstractMerchantAccount, self).save(*args, **kwargs)
 
     @property
     def marketplace_ids(self):
