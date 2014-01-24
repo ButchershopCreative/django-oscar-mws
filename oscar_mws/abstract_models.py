@@ -294,9 +294,10 @@ class AbstractAmazonProfile(models.Model):
 
     def save(self, *args, **kwargs):
         super(AbstractAmazonProfile, self).save(*args, **kwargs)
-        if getattr(settings, 'MWS_ENFORCE_PARTNER_SKU', True):
-            StockRecord.objects.filter(product__amazon_profile=self).update(
-                partner_sku=self.sku)
+        # WARN: FieldError Cannot resolve keyword 'amazon_profile' into field
+        # if getattr(settings, 'MWS_ENFORCE_PARTNER_SKU', True):
+        #     StockRecord.objects.filter(product__amazon_profile=self).update(
+        #         partner_sku=self.sku)
 
     def __unicode__(self):
         return "Amazon profile for {0}".format(self.product.title)
